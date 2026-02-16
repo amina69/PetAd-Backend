@@ -233,7 +233,7 @@ docker-compose --version
 1. **Clone the repository**
 
 ```bash
-git clone https://github.com/petad/petad-core.git
+git clone https://github.com/amina69/PetAd-Backend.git
 cd petad-core
 ```
 
