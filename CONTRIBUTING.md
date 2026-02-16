@@ -9,7 +9,7 @@ Thanks for your interest in contributing! Here's how to get started.
 1. **Fork the repository**
 2. **Clone your fork:**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/PetAd-Backend.git
+   git clone https://github.com/amina69/PetAd-Backend.git
    cd PetAd-Backend
    ```
 3. **Install dependencies:**
