@@ -50,8 +50,8 @@ npm run dev
 
 ### ⚙️ **Contributing to Backend**
 
-👉 **[Read Backend README](Backend/README.md)**  
-👉 **[Read Backend CONTRIBUTING.md](Backend/CONTRIBUTING.md)**
+👉 **[Read Backend README](backend/README.md)**  
+👉 **[Read Backend CONTRIBUTING.md](backend/CONTRIBUTING.md)**
 
 The backend is built with:
 - NestJS
