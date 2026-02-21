@@ -126,4 +126,101 @@ describe('AuthController (e2e)', () => {
       'password must be longer than or equal to 8 characters',
     );
   });
+
+  it('should login successfully and return JWT', async () => {
+    const uniqueEmail = `loginuser+${Date.now()}@example.com`;
+    // Register user first
+    await request(app.getHttpServer()).post('/auth/register').send({
+      email: uniqueEmail,
+      password: 'StrongPass123',
+      firstName: 'Login',
+      lastName: 'User',
+    });
+    // Login
+    const res: Response = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        email: uniqueEmail,
+        password: 'StrongPass123',
+      });
+    const body = res.body as {
+      access_token: string;
+      user: { email: string; role: string };
+    };
+    expect(res.status).toBe(201);
+    expect(body).toHaveProperty('access_token');
+    expect(body.user).toMatchObject({ email: uniqueEmail, role: 'USER' });
+  });
+
+  it('should reject invalid credentials', async () => {
+    const res: Response = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        email: 'nonexistent@example.com',
+        password: 'wrongpassword',
+      });
+    const body = res.body as { message: string };
+    expect(res.status).toBe(401);
+    expect(body.message).toMatch(/invalid credentials/i);
+  });
+
+  it('should reject registration with missing fields', async () => {
+    const res: Response = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        email: 'missingfields@example.com',
+        password: 'StrongPass123',
+        // missing firstName and lastName
+      });
+    const body = res.body as { message: string[] };
+    expect(res.status).toBe(400);
+    expect(body.message).toContain('firstName should not be empty');
+    expect(body.message).toContain('lastName should not be empty');
+  });
+
+  it('should reject extra fields in registration', async () => {
+    const uniqueEmail = `extrafields+${Date.now()}@example.com`;
+    const res: Response = await request(app.getHttpServer())
+      .post('/auth/register')
+      .send({
+        email: uniqueEmail,
+        password: 'StrongPass123',
+        firstName: 'Extra',
+        lastName: 'Fields',
+        extraField: 'shouldBeIgnored',
+      });
+    const body = res.body as { message: string[] };
+    expect(res.status).toBe(400);
+    expect(
+      body.message.some((m) =>
+        m.includes('property extraField should not exist'),
+      ),
+    ).toBe(true);
+  });
+
+  it('should reject extra fields in login', async () => {
+    const uniqueEmail = `extrafieldslogin+${Date.now()}@example.com`;
+    // Register user first
+    await request(app.getHttpServer()).post('/auth/register').send({
+      email: uniqueEmail,
+      password: 'StrongPass123',
+      firstName: 'Extra',
+      lastName: 'Login',
+    });
+    // Login with extra field
+    const res: Response = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        email: uniqueEmail,
+        password: 'StrongPass123',
+        extraField: 'shouldBeIgnored',
+      });
+    const body = res.body as { message: string[] };
+    expect(res.status).toBe(400);
+    expect(
+      body.message.some((m) =>
+        m.includes('property extraField should not exist'),
+      ),
+    ).toBe(true);
+  });
 });
