@@ -15,14 +15,6 @@ enum UserRole {
   SHELTER
 }
 
-enum PetSpecies {
-  DOG
-  CAT
-  BIRD
-  RABBIT
-  OTHER
-}
-
 enum PetStatus {
   AVAILABLE
   PENDING
@@ -97,15 +89,18 @@ model User {
 model Pet {
   id          String    @id @default(uuid())
   name        String
-  species     PetSpecies
+  species     String
   breed       String?
-  age         Int?
-  description String?
-  imageUrl    String?   @map("image_url")
+  age         Int
+  gender      String?
+  size        String?
+  color       String?
+  description String?   @db.Text
+  images      String[]
   status      PetStatus @default(AVAILABLE)
 
-  ownerId String @map("owner_id")
-  owner   User   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  shelterId String @map("shelter_id")
+  shelter   User   @relation(fields: [shelterId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
@@ -115,7 +110,7 @@ model Pet {
 
   @@index([status])
   @@index([species])
-  @@index([ownerId])
+  @@index([shelterId])
   @@map("pets")
 }
 
