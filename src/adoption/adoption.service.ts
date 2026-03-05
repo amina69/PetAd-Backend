@@ -40,7 +40,7 @@ export class AdoptionService {
   ) {
     const adoption = await this.prisma.adoption.findUnique({
       where: { id: adoptionId },
-      include: { pet: true },
+      include: { pet: true, adopter: true, owner: true },
     });
 
     if (!adoption) {
@@ -51,17 +51,13 @@ export class AdoptionService {
       throw new BadRequestException('Adoption is not pending');
     }
 
-    return this.prisma.$transaction(async (tx) => {
-      const updatedAdoption = await tx.adoption.update({
-        where: { id: adoptionId },
-        data: {
-          status: AdoptionStatus.REJECTED,
-          notes: reason ?? null,
-        },
-        include: { pet: true, adopter: true, owner: true },
-      });
-
-      return updatedAdoption;
+    return this.prisma.adoption.update({
+      where: { id: adoptionId },
+      data: {
+        status: AdoptionStatus.REJECTED,
+        notes: reason ?? null,
+      },
+      include: { pet: true, adopter: true, owner: true },
     });
   Logger,
   NotFoundException,
