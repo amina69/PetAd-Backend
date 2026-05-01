@@ -3,6 +3,7 @@ import {
   Logger,
   NotFoundException,
   ConflictException,
+  BadRequestException,
   Optional,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -246,7 +247,7 @@ export class AdoptionService {
         data: {
           entityType: EventEntityType.ADOPTION,
           entityId: adoptionId,
-          eventType: EventType.ADOPTION_REQUESTED, // or define REJECTED if missing
+          eventType: EventType.ADOPTION_REJECTED,
           actorId: adminId,
           payload: { reason },
         },
