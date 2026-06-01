@@ -17,6 +17,7 @@ import { CreateAdoptionDto } from './dto/create-adoption.dto';
 import { UpdateAdoptionStatusDto } from './dto/update-adoption-status.dto';
 import { NotificationQueueService } from '../jobs/services/notification-queue.service';
 import { PetAvailabilityService } from '../pets/services/pet-availability.service';
+import { AdoptionStateMachine } from './services/adoption-state-machine.service';
 
 /** Maps an AdoptionStatus to its corresponding EventType, if one exists. */
 const ADOPTION_STATUS_EVENT_MAP: Partial<Record<AdoptionStatus, EventType>> = {
@@ -32,6 +33,7 @@ export class AdoptionService {
     private readonly prisma: PrismaService,
     private readonly events: EventsService,
     private readonly petAvailabilityService: PetAvailabilityService,
+    private readonly adoptionStateMachine: AdoptionStateMachine,
     @Optional()
     private readonly notificationQueueService?: NotificationQueueService,
   ) {}
@@ -135,15 +137,19 @@ export class AdoptionService {
       throw new NotFoundException(`Adoption with id "${adoptionId}" not found`);
     }
 
+    // Enforce state machine before updating
+    this.adoptionStateMachine.assertValidTransition(existing.status, dto.status);
+
     const updated = await this.prisma.adoption.update({
       where: { id: adoptionId },
       data: { status: dto.status },
     });
 
     this.logger.log(
-      `Adoption ${adoptionId} status updated to ${dto.status} by actor ${actorId}`,
+      `Adoption ${adoptionId} status updated from ${existing.status} to ${dto.status} by actor ${actorId}`,
     );
 
+    // Log event for this transition
     const eventType = ADOPTION_STATUS_EVENT_MAP[dto.status];
     if (eventType) {
       await this.events.logEvent({
