@@ -6,6 +6,9 @@ import { EventsService } from '../events/events.service';
 import { PetAvailabilityService } from '../pets/services/pet-availability.service';
 import { EventType, EventEntityType, AdoptionStatus } from '@prisma/client';
 import { PetStatus } from '../common/enums/pet-status.enum';
+import { AdoptionStateMachine } from './services/adoption-state-machine.service';
+import { EventType, EventEntityType, AdoptionStatus } from '@prisma/client';
+import { DomainException } from '../common/exceptions/domain.exception';
 
 const ADOPTER_ID = 'adopter-uuid';
 const PET_ID = 'pet-uuid';
@@ -35,6 +38,7 @@ describe('AdoptionService', () => {
       create: jest.fn(),
       findUnique: jest.fn(),
       findFirst: jest.fn(),
+      findMany: jest.fn(),
       update: jest.fn(),
     },
     $transaction: jest.fn().mockImplementation(async (cb) => cb(mockPrisma)),
@@ -46,6 +50,9 @@ describe('AdoptionService', () => {
 
   const mockPetAvailabilityService = {
     resolve: jest.fn().mockResolvedValue(PetStatus.AVAILABLE),
+  const mockStateMachine = {
+    assertValidTransition: jest.fn(),
+    canTransition: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -58,6 +65,7 @@ describe('AdoptionService', () => {
         { provide: PrismaService, useValue: mockPrisma },
         { provide: EventsService, useValue: mockEvents },
         { provide: PetAvailabilityService, useValue: mockPetAvailabilityService },
+        { provide: AdoptionStateMachine, useValue: mockStateMachine },
       ],
     }).compile();
 
@@ -172,6 +180,11 @@ describe('AdoptionService', () => {
         status: 'APPROVED',
       });
 
+      expect(mockStateMachine.assertValidTransition).toHaveBeenCalledWith(
+        mockAdoption.status,
+        'APPROVED',
+      );
+
       expect(mockPrisma.adoption.update).toHaveBeenCalledWith({
         where: { id: ADOPTION_ID },
         data: { status: 'APPROVED' },
@@ -200,6 +213,11 @@ describe('AdoptionService', () => {
       await service.updateAdoptionStatus(ADOPTION_ID, ACTOR_ID, {
         status: 'COMPLETED',
       });
+
+      expect(mockStateMachine.assertValidTransition).toHaveBeenCalledWith(
+        mockAdoption.status,
+        'COMPLETED',
+      );
 
       expect(mockEvents.logEvent).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -241,6 +259,13 @@ describe('AdoptionService', () => {
           }),
         }),
       );
+      expect(mockStateMachine.assertValidTransition).toHaveBeenCalledWith(
+        mockAdoption.status,
+        'REJECTED',
+      );
+
+      // REJECTED has no mapped EventType — logEvent should NOT be called
+      expect(mockEvents.logEvent).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException when adoption does not exist', async () => {
@@ -251,6 +276,23 @@ describe('AdoptionService', () => {
           status: 'APPROVED',
         }),
       ).rejects.toThrow(NotFoundException);
+
+      expect(mockPrisma.adoption.update).not.toHaveBeenCalled();
+      expect(mockEvents.logEvent).not.toHaveBeenCalled();
+    });
+
+    it('throws DomainException when state machine rejects the transition', async () => {
+      const domainError = new DomainException('Invalid transition');
+      mockPrisma.adoption.findUnique.mockResolvedValue(mockAdoption);
+      mockStateMachine.assertValidTransition.mockImplementationOnce(() => {
+        throw domainError;
+      });
+
+      await expect(
+        service.updateAdoptionStatus(ADOPTION_ID, ACTOR_ID, {
+          status: 'COMPLETED',
+        }),
+      ).rejects.toThrow(domainError);
 
       expect(mockPrisma.adoption.update).not.toHaveBeenCalled();
       expect(mockEvents.logEvent).not.toHaveBeenCalled();
